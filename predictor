@@ -1,0 +1,62 @@
+import tensorflow as tf
+import cv2
+import datetime
+import pandas as pd
+#import csv
+#import os
+# import numpy as np
+
+from tensorflow import keras
+# from keras.preprocessing.image import load_img
+from keras.preprocessing.image import img_to_array
+
+# from keras.models import load_model
+
+devices = tf.config.experimental.list_physical_devices('GPU')
+tf.config.experimental.set_memory_growth(devices[0], True)
+model = keras.models.load_model('elevator.h5')
+
+cam = cv2.VideoCapture("rtsp://login:password@ip-address-camera")
+font = cv2.FONT_HERSHEY_SIMPLEX
+fontScale = 1
+fontColor = (0, 0, 255)
+lineType = 1
+status_prev = 'Closed'
+count = 0
+
+while True:
+    ret_val, frame = cam.read()
+    img = cv2.resize(frame, (150, 150))
+    img = img_to_array(img)
+    img = img.reshape(1, 150, 150, 3)
+    # print(img.shape)
+    result = model.predict(img)
+    if result == 1:
+        status = 'Opened'
+    elif result == 0:
+        status = 'Closed'
+    if status_prev == 'Closed' and status == 'Opened':
+        count += 1
+    status_prev = status
+    cv2.putText(frame, status, (40, 60), font, fontScale, fontColor, lineType)
+    cv2.putText(frame, "Count: %i" % count, (40, 100), font, fontScale, fontColor, lineType)
+    cv2.imshow('Door status', frame)
+    # print(result[0])
+    now = datetime.datetime.now()
+    time = now.strftime("%d-%m-%Y %H:%M:%S")
+    #if now.hour == 23 and now.minute == 59 and now.second == 59:
+    #    res_to_write = (time, count)
+    #    res_to_write = pd.DataFrame(data=res_to_write)
+    #    res_to_write.to_csv(r"results.csv", mode='a',index=False)
+    #    count = 0
+    res_to_write = (time, count)
+    res_to_write = pd.DataFrame(data=res_to_write)
+    res_to_write.to_csv(r"results.csv", mode='a',index=False)
+
+    print(time, count)
+    if cv2.waitKey(1) == 27:
+        break
+
+cam.release()
+# close the window and de-allocate any associated memory usage
+cv2.destroyAllWindows()
